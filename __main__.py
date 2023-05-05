@@ -3,9 +3,11 @@ import time
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
+from tkinter import filedialog
 from PIL import Image, ImageTk, ImageOps, ImageDraw
 import os
 import requests
+import json
 from modules.Gradian import GradientFrame
 from modules.Constants import Constants
 from urllib.request import urlopen
@@ -207,53 +209,123 @@ class GUI(tk.Frame):
             handle_play_mp3(str(path))
             play_time()
 
-        def choose_image(add_song_win):
-            mp3file = tk.filedialog.askopenfilename(
-                initialdir="/", title="chon file", filetypes=[("pnj file", "*.pnj"), ("jpg file", "*.jpg")])
-            print(type(mp3file))
-            return mp3file
+        def choose_image(add_song_win, image_entry):
+            imageFile = filedialog.askopenfilename(
+                initialdir="/", title="chon file", filetypes=[("png file", "*.png"), ("jpg file", "*.jpg")])
+            # print(imageFile)
+            if(imageFile):
+                imageFileName = open(imageFile, 'rb')
+            else:
+                return None
+                # print(imageFileName.read())
+            imageFileBaseName = os.path.basename(imageFile)
+            image_entry.delete(0, 'end')  # clear any existing text
+            image_entry.insert(0, imageFileBaseName)  # insert selected file path
+            return imageFileName
 
-        def choose_file(root):
-            dir = tk.filedialog.askopenfilename()
-            # dir = filedialog.askopenfilename(
-            #     initialdir="/", title="chon file", filetypes=(("mp3 file", "*.mp3"), ("all file", "*.*")))
-            print("hello")
+        def choose_file(root, mp3file_entry):
+            # dir = tk.filedialog.askopenfilename()
+            mp3File = filedialog.askopenfilename(
+                initialdir="/", title="chon file", filetypes=(("mp3 file", "*.mp3"), ("all file", "*.*")))
+            # print("hello", mp3File)
+            if(mp3File):
+                mp3FileName = open(mp3File, 'rb')
+            mp3FileBaseName = os.path.basename(mp3File)
+            mp3file_entry.delete(0, 'end')
+            mp3file_entry.insert(0, mp3FileBaseName)
+            return mp3FileName
             # print(os.path.abspath(file_to_upload.filename))
 
-            file = {'file': open(dir, 'rb')}
-            data = {"name": "name test", "image": "image test"}
+            # file = {'file': open(dir, 'rb')}
+            # data = {"name": "name test", "image": "image test"}
             # headers = {'Content-Type': 'multipart/form-data'}
             # r = requests.post("http://127.0.0.1:5000/uploads",
             #                   headers=headers, files=file)
 
-            r = requests.post('http://127.0.0.1:5000/uploads',
-                              files=file, json=data)
-            print(r)
-            return dir
+            # r = requests.post('http://127.0.0.1:5000/uploads',
+            #                   files=file, json=data)
+            # print(r)
+
+        import requests
+
+        def handle_add_form(name, image_file, mp3_file):
+            # print(name, image_file,mp3_file)
+
+            try:
+                url = "http://127.0.0.1:5000/uploads"
+
+                # create a dictionary with the data to be sent in the POST request
+                
+                # json_data = {
+                #     'name': name
+                # }
+
+                # create a dictionary for the files to be sent in the POST request
+
+                files_data = {
+                    "image": image_file,
+                    "file": mp3_file,
+                    'data': (None, json.dumps({'name':name}), 'application/json'), 
+                }
+
+                if image_file == None:
+                    files_data = {
+                        "file": mp3_file,
+                        "data": (None, json.dumps({"name": name}), "application/json")
+                    }
+
+                # send the POST request
+                response = requests.post(url, files=files_data)
+                print(files_data)
+                # print(json_data)
+                print(response)
+                if response.ok:
+                    print("Upload successful")
+                    self.listbox.insert(END, name)
+                    Constants.list_music.insert(len(Constants.list_music), response.json())
+                    return response.json()
+                else:
+                    print("Upload failed:", response.text)
+                    return None
+            except:
+                print("Oh No ! Exception :(((")
+                return None
+
+
+       
 
         def handle_add_music():
+            global select_file 
+            global select_image
+            select_file = None
+
             add_song_win = tk.Toplevel()
             # add_song_win.attributes('-topmost', True)
             add_song_win.geometry("300x100")
             add_song_win.title("Thêm bài hát")
             lb_name = tk.Label(add_song_win, text="Tên bài hát")
             name_entry = tk.Entry(add_song_win)
+
             lb_image = tk.Label(add_song_win, text="Ảnh")
             image_entry = tk.Entry(add_song_win)
-            image_entry.insert(0, "Vui lòng chọn ảnh")
+            image_entry.insert(0, " Vui lòng chọn ảnh")
             bt_select_image = tk.Button(
-                add_song_win, text="select", command=choose_image)
-            image_entry.delete(0)
-            image_entry.insert(0, dir)
+                add_song_win, text="select", command=lambda: handle_select_image(add_song_win, image_entry))
+            # bt_select_image.pack()
+            # image_entry.delete(0)
+            # image_entry.insert(0, dir)
+
             lb_mp3file = tk.Label(add_song_win, text="File nhạc")
             mp3file_entry = tk.Entry(add_song_win)
-            mp3file_entry.insert(0, "Vui lòng chọn file nhạc")
+            mp3file_entry.insert(0, " Vui lòng chọn file nhạc")
             bt_select_file = tk.Button(
-                add_song_win, text="select", command=choose_file)
-            mp3file_entry.delete(0)
-            mp3file_entry.insert(0, dir)
+                add_song_win, text="select", command=lambda: handle_select_file(add_song_win, mp3file_entry))
+            # bt_select_file.pack()
+            # mp3file_entry.delete(0)
+            # mp3file_entry.insert(0, dir)
             print(dir)
-            btn_them = tk.Button(add_song_win, text="Thêm", command="")
+
+            btn_them = tk.Button(add_song_win, text="Thêm", command=lambda: handle_add_form(name_entry.get(), select_image, select_file))
             btn_huy = tk.Button(add_song_win, text="Hủy",
                                 command=add_song_win.destroy)
 
@@ -267,6 +339,17 @@ class GUI(tk.Frame):
             bt_select_file.grid(row=2, column=3)
             btn_them.grid(row=3, column=0)
             btn_huy.grid(row=3, column=1)
+
+
+        def handle_select_image(add_song_win, image_entry):
+            global select_image
+            select_image = choose_image(add_song_win, image_entry)
+
+        def handle_select_file(add_song_win, mp3file_entry):
+            global select_file
+            select_file = choose_file(add_song_win, mp3file_entry)
+
+
 
         def handle_delete_music():
             index = len(self.listbox.curselection())
