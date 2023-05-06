@@ -185,16 +185,29 @@ class GUI(tk.Frame):
             f_types = [('Jpg Files', '*.jpg')]
             self.file_image_selected = filedialog.askopenfilename(
                 initialdir=r'C:\\Downloads', filetypes=f_types)
+            imageFileBaseName = os.path.basename(self.file_image_selected)
+            self.image_entry.delete(0, 'end')  # clear any existing text
+            # insert selected file path
+            self.image_entry.insert(0, imageFileBaseName)
 
         # event choose file mp3
         def upload_mp3():
-            f_types = [('Jpg Files', '*.jpg')]
+            f_types = [("Audio Files", ".wav .ogg"),   ("All Files", "*.*")]
             self.file_mp3_selected = filedialog.askopenfilename(
                 initialdir=r'C:\\Downloads')
             # dir = filedialog.askopenfilename(
             #     initialdir="/", title="chon file", filetypes=(("mp3 file", "*.mp3"), ("all file", "*.*")))
+            mp3FileBaseName = os.path.basename(self.file_mp3_selected)
+            if mp3FileBaseName != None and '.mp3' in mp3FileBaseName:
+                self.mp3file_entry.delete(0, 'end')
+                self.mp3file_entry.insert(0, mp3FileBaseName)
+            else:
+                self.file_mp3_selected = None
+                tk.messagebox.showerror(
+                    "Error", "Please choose format file mp3 !!!")
 
         def upload_data_to_server():
+            url = "http://127.0.0.1:5000/uploads"
             files = {}
             if self.file_mp3_selected and self.name_entry.get():
                 payload = {'name': self.name_entry.get().strip()}
@@ -208,8 +221,7 @@ class GUI(tk.Frame):
                 tk.messagebox.showerror(
                     "Error", "Please enter fill input NAME and FILE MP3 !!!")
             # headers = {'Content-Type': 'multipart/form-data'}
-            res = requests.post('http://127.0.0.1:5000/uploads',
-                                files=files)
+            res = requests.post(url, files=files)
             if (res.status_code == 200):
                 Constants.list_music.insert(
                     len(Constants.list_music), res.json())
@@ -229,20 +241,20 @@ class GUI(tk.Frame):
             self.name_entry = tk.Entry(self.add_song_win)
 
             lb_mp3file = tk.Label(self.add_song_win, text="File mp3")
-            mp3file_entry = tk.Entry(self.add_song_win)
-            mp3file_entry.insert(0, "Please choose file mp3 !!!")
+            self.mp3file_entry = tk.Entry(self.add_song_win)
+
             bt_select_file = tk.Button(
                 self.add_song_win, text="Select", command=upload_mp3)
-            mp3file_entry.delete(0)
-            mp3file_entry.insert(0, dir)
+            self.mp3file_entry.delete(0)
+            self.mp3file_entry.insert(0, "Please choose file mp3 !!!")
 
             lb_image = tk.Label(self.add_song_win, text="Image")
-            image_entry = tk.Entry(self.add_song_win)
-            image_entry.insert(0, "Please choose file image !!!")
+            self.image_entry = tk.Entry(self.add_song_win)
+
             bt_select_image = tk.Button(
                 self.add_song_win, text="Select", command=upload_image)
-            image_entry.delete(0)
-            image_entry.insert(0, dir)
+            self.image_entry.delete(0)
+            self.image_entry.insert(0, "Please choose file image !!!")
             btn_them = tk.Button(self.add_song_win, text="Upload",
                                  command=upload_data_to_server)
             btn_huy = tk.Button(self.add_song_win, text="Cancel",
@@ -252,11 +264,11 @@ class GUI(tk.Frame):
             self.name_entry.grid(row=0, column=1)
 
             lb_mp3file.grid(row=1, column=0)
-            mp3file_entry.grid(row=1, column=1)
+            self.mp3file_entry.grid(row=1, column=1)
             bt_select_file.grid(row=1, column=2)
 
             lb_image.grid(row=2, column=0)
-            image_entry.grid(row=2, column=1)
+            self.image_entry.grid(row=2, column=1)
             bt_select_image.grid(row=2, column=2)
 
             btn_huy.grid(row=3, column=1, pady=20)
