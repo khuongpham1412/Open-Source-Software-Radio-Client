@@ -1,6 +1,8 @@
 import vlc
 import time
 import tkinter as tk
+from tkinter import filedialog
+from tkinter.filedialog import askopenfile
 from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageOps, ImageDraw
@@ -9,6 +11,7 @@ import requests
 from modules.Gradian import GradientFrame
 from modules.Constants import Constants
 from urllib.request import urlopen
+import json
 os.add_dll_directory(os.getcwd())
 
 
@@ -20,6 +23,10 @@ class Music:
 
 
 class GUI(tk.Frame):
+    file_image_selected = None
+    file_mp3_selected = None
+    input_name_music = ""
+
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
@@ -27,22 +34,19 @@ class GUI(tk.Frame):
         self.master.title("Radio app")
         self.master.geometry("800x600")
 
+        # event Play mp3
+
         def handle_play_mp3(path):
             url = "http://localhost:5000/play-music/" + str(path)
             media_player = Constants.media_player
             media = vlc.Media(url)
             media_player.set_media(media)
             media_player.play()
-            # wait so the video can be played for 2.5 seconds
-            # dem = 5
-            # while(dem > 0):
-            #     dem = dem - 1
             duration = media_player.get_length() / 1000
             while (duration > 0):
                 duration = duration - 1
-            # checking if it is playing
-            value = media_player.is_playing()
 
+        # event Previous music
         def handle_prev():
             if (Constants.index_select > 0 and Constants.index_select < len(Constants.list_music)):
                 self.seekbar['value'] = 0
@@ -68,6 +72,7 @@ class GUI(tk.Frame):
                 lb_music_name.configure(text=Constants.music_selected['name'])
                 lb_music_name.pack()
 
+        # event Pause/continue music
         def handle_paused():
             if (Constants.index_select >= 0 and Constants.index_select < len(Constants.list_music)):
                 media_player = Constants.media_player
@@ -86,6 +91,7 @@ class GUI(tk.Frame):
                 btnPaused.configure(image=imgPrev)
                 btnPaused.image = imgPrev
 
+        # event next music
         def handle_next():
             if (Constants.index_select < len(Constants.list_music) - 1 and Constants.index_select > -1):
                 self.seekbar['value'] = 0
@@ -110,7 +116,7 @@ class GUI(tk.Frame):
                 lbImage.image = img
                 lb_music_name.configure(text=Constants.music_selected['name'])
                 lb_music_name.pack()
-            elif(Constants.index_select == len(Constants.list_music) - 1):
+            elif (Constants.index_select == len(Constants.list_music) - 1):
                 self.seekbar['value'] = 0
                 self.listbox.select_clear(Constants.index_select)
                 Constants.index_select = 0
@@ -139,6 +145,7 @@ class GUI(tk.Frame):
                                          "image": "image", "path": "1682931939.569541.mp3"})
             self.listbox.insert(END, "Hôm nay tôi buồn")
 
+        # event Play mp3
         def onselect(evt):
             self.seekbar['value'] = 0
             imgPrev = ImageTk.PhotoImage(Image.open(
@@ -168,106 +175,95 @@ class GUI(tk.Frame):
                 raw_data = u.read()
                 u.close()
                 img = ImageTk.PhotoImage(data=raw_data)
-                # # Lấy kích thước của ảnh
-                # width, height = 300, 300
-
-                # # Tính đường kính của hình tròn cần cắt ra
-                # diameter = min(width, height)
-
-                # # Tạo ảnh mới kích thước bằng đường kính của hình tròn
-                # new_img = Image.new("RGBA", (diameter, diameter), (0, 0, 0, 0))
-
-                # # Chèn ảnh gốc vào ảnh mới
-                # new_img.paste(img, ((diameter - width) //
-                #               2, (diameter - height) // 2))
-
-                # # Bo tròn ảnh mới
-                # mask = Image.new("L", (diameter, diameter), 0)
-                # draw = ImageDraw.Draw(mask)
-                # draw.ellipse((0, 0, diameter, diameter), fill=500)
-                # new_img.putalpha(mask)
-
-                # # Lưu ảnh mới
-                # output_path = "test.png"
-                # new_img.save(output_path)
-
                 lbImage.configure(image=img)
                 lbImage.image = img
-
-            # print(selected_music['path'])
-            # Hiển thị tên bài hát lên Label
-            # img = ImageTk.PhotoImage(Image.open(image))
-            # lbImage.configure(image=img, bg='#192533')
-            # lbImage.image = img
-
-            # imgPrev = ImageTk.PhotoImage(Image.open(
-            #     r"D:\\SGU\\Opensource_Software\\radio-client\\assets\\pause.png"))
-            # btnPaused.configure(image=imgPrev)
-            # btnPaused.image = imgPrev
             handle_play_mp3(str(path))
             play_time()
 
-        def choose_image(add_song_win):
-            mp3file = tk.filedialog.askopenfilename(
-                initialdir="/", title="chon file", filetypes=[("pnj file", "*.pnj"), ("jpg file", "*.jpg")])
-            print(type(mp3file))
-            return mp3file
+        def upload_image():
+            # [("pnj file", "*.pnj"), ("jpg file", "*.jpg")]
+            f_types = [('Jpg Files', '*.jpg')]
+            self.file_image_selected = filedialog.askopenfilename(
+                initialdir=r'C:\\Downloads', filetypes=f_types)
 
-        def choose_file(root):
-            dir = tk.filedialog.askopenfilename()
+        # event choose file mp3
+        def upload_mp3():
+            f_types = [('Jpg Files', '*.jpg')]
+            self.file_mp3_selected = filedialog.askopenfilename(
+                initialdir=r'C:\\Downloads')
             # dir = filedialog.askopenfilename(
             #     initialdir="/", title="chon file", filetypes=(("mp3 file", "*.mp3"), ("all file", "*.*")))
-            print("hello")
-            # print(os.path.abspath(file_to_upload.filename))
 
-            file = {'file': open(dir, 'rb')}
-            data = {"name": "name test", "image": "image test"}
+        def upload_data_to_server():
+            files = {}
+            if self.file_mp3_selected and self.name_entry.get():
+                payload = {'name': self.name_entry.get().strip()}
+                files = {
+                    'data': (None, json.dumps(payload), 'application/json'),
+                    'file': open(self.file_mp3_selected, 'rb'),
+                }
+                if self.file_image_selected:
+                    files['image'] = open(self.file_image_selected, 'rb')
+            else:
+                tk.messagebox.showerror(
+                    "Error", "Please enter fill input NAME and FILE MP3 !!!")
             # headers = {'Content-Type': 'multipart/form-data'}
-            # r = requests.post("http://127.0.0.1:5000/uploads",
-            #                   headers=headers, files=file)
+            res = requests.post('http://127.0.0.1:5000/uploads',
+                                files=files)
+            if (res.status_code == 200):
+                Constants.list_music.insert(
+                    len(Constants.list_music), res.json())
+                self.listbox.insert(END, res.json()['name'])
+                self.add_song_win.destroy()
+            else:
+                tk.messagebox.showerror(
+                    "Error", "Oh No ! What Wrong From Server !!!")
 
-            r = requests.post('http://127.0.0.1:5000/uploads',
-                              files=file, json=data)
-            print(r)
-            return dir
-
+        # event upload mp3
         def handle_add_music():
-            add_song_win = tk.Toplevel()
-            # add_song_win.attributes('-topmost', True)
-            add_song_win.geometry("300x100")
-            add_song_win.title("Thêm bài hát")
-            lb_name = tk.Label(add_song_win, text="Tên bài hát")
-            name_entry = tk.Entry(add_song_win)
-            lb_image = tk.Label(add_song_win, text="Ảnh")
-            image_entry = tk.Entry(add_song_win)
-            image_entry.insert(0, "Vui lòng chọn ảnh")
-            bt_select_image = tk.Button(
-                add_song_win, text="select", command=choose_image)
-            image_entry.delete(0)
-            image_entry.insert(0, dir)
-            lb_mp3file = tk.Label(add_song_win, text="File nhạc")
-            mp3file_entry = tk.Entry(add_song_win)
-            mp3file_entry.insert(0, "Vui lòng chọn file nhạc")
+            self.add_song_win = tk.Toplevel()
+            # self.add_song_win.attributes('-topmost', True)
+            self.add_song_win.geometry("300x130")
+            self.add_song_win.title("Add Music")
+            lb_name = tk.Label(self.add_song_win, text="Song Name")
+            self.name_entry = tk.Entry(self.add_song_win)
+
+            lb_mp3file = tk.Label(self.add_song_win, text="File mp3")
+            mp3file_entry = tk.Entry(self.add_song_win)
+            mp3file_entry.insert(0, "Please choose file mp3 !!!")
             bt_select_file = tk.Button(
-                add_song_win, text="select", command=choose_file)
+                self.add_song_win, text="Select", command=upload_mp3)
             mp3file_entry.delete(0)
             mp3file_entry.insert(0, dir)
-            print(dir)
-            btn_them = tk.Button(add_song_win, text="Thêm", command="")
-            btn_huy = tk.Button(add_song_win, text="Hủy",
-                                command=add_song_win.destroy)
+
+            lb_image = tk.Label(self.add_song_win, text="Image")
+            image_entry = tk.Entry(self.add_song_win)
+            image_entry.insert(0, "Please choose file image !!!")
+            bt_select_image = tk.Button(
+                self.add_song_win, text="Select", command=upload_image)
+            image_entry.delete(0)
+            image_entry.insert(0, dir)
+            btn_them = tk.Button(self.add_song_win, text="Upload",
+                                 command=upload_data_to_server)
+            btn_huy = tk.Button(self.add_song_win, text="Cancel",
+                                command=self.add_song_win.destroy)
 
             lb_name.grid(row=0, column=0)
-            name_entry.grid(row=0, column=1)
-            lb_image.grid(row=1, column=0)
-            image_entry.grid(row=1, column=1)
-            bt_select_image.grid(row=1, column=3)
-            lb_mp3file.grid(row=2, column=0)
-            mp3file_entry.grid(row=2, column=1)
-            bt_select_file.grid(row=2, column=3)
-            btn_them.grid(row=3, column=0)
-            btn_huy.grid(row=3, column=1)
+            self.name_entry.grid(row=0, column=1)
 
+            lb_mp3file.grid(row=1, column=0)
+            mp3file_entry.grid(row=1, column=1)
+            bt_select_file.grid(row=1, column=2)
+
+            lb_image.grid(row=2, column=0)
+            image_entry.grid(row=2, column=1)
+            bt_select_image.grid(row=2, column=2)
+
+            btn_huy.grid(row=3, column=1, pady=20)
+            btn_them.grid(row=3, column=2)
+            # self.input_name_music = name_entry.get()
+
+        # event delete mp3
         def handle_delete_music():
             index = len(self.listbox.curselection())
             if (index != 0):
@@ -294,6 +290,7 @@ class GUI(tk.Frame):
                 btnPaused.configure(image=imgPause)
                 btnPaused.image = imgPause
 
+        # event scroll seekbar when play mp3
         def play_time():
             media_player = Constants.media_player
             if (media_player.is_playing() == 1):
@@ -310,31 +307,7 @@ class GUI(tk.Frame):
                 self.seekbar['value'] += float(100/current_time)
             Constants.solve = self.seekbar1.after(1000, play_time)
 
-            # Frame left
-        self.frameL = GradientFrame(self.master, width=500,
-                                    height=600, borderwidth=1, relief="sunken")
-        self.frameL.pack(side="left", fill="y")
-
-        # Frame Right
-        self.frameR = GradientFrame(self.master, width=300,
-                                    height=600,
-                                    borderwidth=1, relief="sunken")
-        self.frameR.pack(side="right", fill="both", expand=True)
-
-        # Label on top of frame Left
-
-        img = ImageTk.PhotoImage(Image.open(
-            r"output.png"))
-
-        lbImage = tk.Label(self.frameL, image=img,
-                           width=300, height=300, bg='#192533')
-        lbImage.image = img
-        lbImage.pack(padx=50, pady=50, side="top")
-
-        lb_music_name = tk.Label(self.frameL)
-        # lb_music_name.pack()
-        # lb_music_name.pack_forget()
-
+        # event click seekbar
         def on_seekbar_click(event):
             self.seekbar['value'] = event.x / 3
             # get position on seekbar tool
@@ -343,18 +316,42 @@ class GUI(tk.Frame):
             time = ((media_player.get_length() / 1000) / 100) * position
             media_player.set_time(int(time * 1000))
 
+        # Frame left (Play mp3)
+        self.frameL = GradientFrame(self.master, width=500,
+                                    height=600, borderwidth=1, relief="sunken")
+        self.frameL.pack(side="left", fill="y")
+
+        # Frame Right (List mp3)
+        self.frameR = GradientFrame(self.master, width=300,
+                                    height=600,
+                                    borderwidth=1, relief="sunken")
+        self.frameR.pack(side="right", fill="both", expand=True)
+
+        # Label image music (Left)
+        img = ImageTk.PhotoImage(Image.open(
+            r"output.png"))
+        lbImage = tk.Label(self.frameL, image=img,
+                           width=300, height=300, bg='#192533')
+        lbImage.image = img
+        lbImage.pack(padx=50, pady=50, side="top")
+
+        # Label name music (Left)
+        lb_music_name = tk.Label(self.frameL)
+
+        # Label show time music (Left)
         self.seekbar1 = tk.Label(self.frameL, text='', relief=GROOVE, anchor=E)
         self.seekbar1.pack(fill=X, side=BOTTOM, ipady=2)
 
         def slide(x):
             pass
 
+        # Seekbar (Left)
         self.seekbar = ttk.Scale(
             self.frameL, from_=0, to=100, orient=HORIZONTAL, value=0, command=slide, length=300)
         self.seekbar.pack()
         self.seekbar.bind('<Button-1>', on_seekbar_click)
 
-        # Tạo các button nằm ở hàng dưới cùng của frame 1
+        # btn previous, pause, next... (Left)
         imgPrev = ImageTk.PhotoImage(Image.open(
             r"assets\\back-arrow.png"))
         btnPrev = tk.Button(self.frameL, image=imgPrev,
@@ -376,14 +373,7 @@ class GUI(tk.Frame):
         btnNext.image = imgNext
         btnNext.place(x=280, y=480, width=35, height=35)
 
-        # List in frame Right
-        # self.entry_search = tk.Entry(self.frameR, bg="white", width=35)
-        # self.entry_search.grid(row=0, column=0, padx=20, pady=45)
-        # text = self.entry_search.get()
-        # self.btnSearch = tk.Button(
-        #     self.frameR, text="Search", command=handle_search)
-        # self.btnSearch.grid(row=0, column=1, pady=45)
-
+        # List music (Right)
         self.listbox = tk.Listbox(self.frameR, width=50, height=25)
         self.listbox.grid(row=0, column=0, columnspan=3, padx=40, pady=50)
         res = requests.get(
@@ -395,12 +385,12 @@ class GUI(tk.Frame):
             self.listbox.insert(END, music['name'])
         self.listbox.bind('<<ListboxSelect>>', onselect)
 
-        self.btnAdd = tk.Button(self.frameR, text="Add Music",
-                                width=10, height=2, command=handle_add_music)
-        self.btnAdd.grid(row=1, column=1)
         self.btnDelete = tk.Button(
             self.frameR, text="Delete Music", width=10, height=2, command=handle_delete_music)
-        self.btnDelete.grid(row=1, column=2)
+        self.btnDelete.grid(row=1, column=1)
+        self.btnAdd = tk.Button(self.frameR, text="Add Music",
+                                width=10, height=2, command=handle_add_music)
+        self.btnAdd.grid(row=1, column=2)
 
 
 if __name__ == "__main__":
