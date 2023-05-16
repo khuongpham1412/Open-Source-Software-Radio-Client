@@ -182,7 +182,7 @@ class GUI(tk.Frame):
 
         def upload_image():
             # [("pnj file", "*.pnj"), ("jpg file", "*.jpg")]
-            f_types = [('Jpg Files', '*.jpg')]
+            f_types = [('Jpg Files', ['*.jpg','*.png'])]
             self.file_image_selected = filedialog.askopenfilename(
                 initialdir=r'C:\\Downloads', filetypes=f_types)
             imageFileBaseName = os.path.basename(self.file_image_selected)
@@ -198,13 +198,16 @@ class GUI(tk.Frame):
             # dir = filedialog.askopenfilename(
             #     initialdir="/", title="chon file", filetypes=(("mp3 file", "*.mp3"), ("all file", "*.*")))
             mp3FileBaseName = os.path.basename(self.file_mp3_selected)
-            if mp3FileBaseName != None and '.mp3' in mp3FileBaseName:
+            fileNameExtention = mp3FileBaseName.split('.')
+            fileNameExtention = "." + fileNameExtention[len(fileNameExtention) - 1]
+            arr = [".mp3",".aac",".wma",".wav",".flac",".ogg",".aiff",".alac",".m4a"]
+            if mp3FileBaseName != None and fileNameExtention in arr:
                 self.mp3file_entry.delete(0, 'end')
                 self.mp3file_entry.insert(0, mp3FileBaseName)
             else:
                 self.file_mp3_selected = None
                 tk.messagebox.showerror(
-                    "Error", "Please choose format file mp3 !!!")
+                    "Error", "Please choose the correct format !!!")
 
         def upload_data_to_server():
             url = "http://127.0.0.1:5000/uploads"
@@ -217,19 +220,21 @@ class GUI(tk.Frame):
                 }
                 if self.file_image_selected:
                     files['image'] = open(self.file_image_selected, 'rb')
+                # headers = {'Content-Type': 'multipart/form-data'}
+                res = requests.post(url, files=files)
+                if (res.status_code == 200):
+                    Constants.list_music.insert(
+                        len(Constants.list_music), res.json())
+                    self.listbox.insert(END, res.json()['name'])
+                    self.add_song_win.destroy()
+                    self.file_image_selected = None
+                    self.file_mp3_selected = None
+                else:
+                    tk.messagebox.showerror(
+                        "Error", "Oh No ! What Wrong From Server !!!")
             else:
                 tk.messagebox.showerror(
-                    "Error", "Please enter fill input NAME and FILE MP3 !!!")
-            # headers = {'Content-Type': 'multipart/form-data'}
-            res = requests.post(url, files=files)
-            if (res.status_code == 200):
-                Constants.list_music.insert(
-                    len(Constants.list_music), res.json())
-                self.listbox.insert(END, res.json()['name'])
-                self.add_song_win.destroy()
-            else:
-                tk.messagebox.showerror(
-                    "Error", "Oh No ! What Wrong From Server !!!")
+                    "Error", "Please enter fill input NAME and FILE MUSIC !!!")
 
         # event upload mp3
         def handle_add_music():
@@ -365,7 +370,7 @@ class GUI(tk.Frame):
 
         # btn previous, pause, next... (Left)
         imgPrev = ImageTk.PhotoImage(Image.open(
-            r"assets\\back-arrow.png"))
+            r"assets\\back.png"))
         btnPrev = tk.Button(self.frameL, image=imgPrev,
                             width=35, height=35, border=0, command=handle_prev)
         btnPrev.image = imgPrev
